@@ -1,7 +1,5 @@
 namespace Reactors;
 
-public interface Reactor {
-    Task Start(Actor self);
-    Task Terminate();
+public interface Reactor: IDisposable {
     Task React(object data, long timestamp);
 }

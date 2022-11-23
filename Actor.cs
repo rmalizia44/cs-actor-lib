@@ -3,26 +3,35 @@ using System.Threading.Channels;
 namespace Reactors;
 
 public class Actor {
-    private readonly Reactor Reactor;
-    private readonly Channel<MsgInfo> Queue;
+    private static Exception Exception = new NotImplementedException();
     private readonly DateTime StartTime;
     private readonly Timer Timer;
+    private readonly Channel<MsgInfo> Queue;
     private readonly List<MsgInfo> UnsafeMsgScheduled = new();
     private readonly List<MsgInfo> MsgReady = new();
-    public readonly Task Task;
-    public Actor(Reactor reactor) {
-        Reactor = reactor;
-        Queue = Channel.CreateUnbounded<MsgInfo>();
+    private Reactor Reactor = null!;
+    private Task Task = Task.FromException(Exception);
+    public Actor() {
         StartTime = DateTime.Now;
         Timer = new(o => NotifyTimer());
-        var scheduler = new ConcurrentExclusiveSchedulerPair()
-            .ExclusiveScheduler;
-        Task = Task.Factory.StartNew(
-            () => Loop(),
-            CancellationToken.None,
-            TaskCreationOptions.None,
-            scheduler
-        ).Unwrap();
+        Queue = Channel.CreateUnbounded<MsgInfo>();
+    }
+    public Task Reset(Reactor reactor) {
+        var old = Reactor;
+        Reactor = reactor;
+        if(old == null) {
+            var scheduler = new ConcurrentExclusiveSchedulerPair()
+                .ExclusiveScheduler;
+            Task = Task.Factory.StartNew(
+                () => Loop(),
+                CancellationToken.None,
+                TaskCreationOptions.None,
+                scheduler
+            ).Unwrap();
+        } else {
+            old.Dispose();
+        }
+        return Task;
     }
     public bool Send(object data, int delay = 0) {
         long timestamp = CalcTimestamp();
@@ -87,24 +96,19 @@ public class Actor {
         MsgReady.Clear();
     }
     private async Task Loop() {
-        try {
-            await Reactor.Start(this);
-            bool running = true;
-            while(running) {
-                try {
-                    await foreach(var msg in Queue.Reader.ReadAllAsync()) {
-                        await Reactor.React(msg.Data, msg.Timestamp);
-                    }
-                    running = false;
-                } catch (Exception e) {
-                    Console.WriteLine(e);
-                }
-            }
+        bool running = true;
+        while(running) {
             try {
-                await Reactor.Terminate();
+                await foreach(var msg in Queue.Reader.ReadAllAsync()) {
+                    await Reactor.React(msg.Data, msg.Timestamp);
+                }
+                running = false;
             } catch (Exception e) {
                 Console.WriteLine(e);
             }
+        }
+        try {
+            Reactor.Dispose();
         } catch (Exception e) {
             Console.WriteLine(e);
         }
