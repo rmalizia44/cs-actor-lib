@@ -1,4 +1,4 @@
-namespace Reactors;
+namespace Actors;
 
 internal class MsgInfo: IComparable<MsgInfo> {
     public object Data;

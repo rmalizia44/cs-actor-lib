@@ -1,6 +1,6 @@
 using System.Threading.Channels;
 
-namespace Reactors;
+namespace Actors;
 
 public class Actor {
     private static Exception Exception = new NotImplementedException();
@@ -9,16 +9,16 @@ public class Actor {
     private readonly Channel<MsgInfo> Queue;
     private readonly List<MsgInfo> UnsafeMsgScheduled = new();
     private readonly List<MsgInfo> MsgReady = new();
-    private Reactor Reactor = null!;
+    private State State = null!;
     private Task Task = Task.FromException(Exception);
     public Actor() {
         StartTime = DateTime.Now;
         Timer = new(o => NotifyTimer());
         Queue = Channel.CreateUnbounded<MsgInfo>();
     }
-    public Task Reset(Reactor reactor) {
-        var old = Reactor;
-        Reactor = reactor;
+    public Task Reset(State state) {
+        var old = State;
+        State = state;
         if(old == null) {
             var scheduler = new ConcurrentExclusiveSchedulerPair()
                 .ExclusiveScheduler;
@@ -87,20 +87,20 @@ public class Actor {
                 nextTimestamp = next.Timestamp;
             }
         }
-        if(nextTimestamp >= 0) {
-            UpdateTimer(nextTimestamp - currentTimestamp);
-        }
         foreach(var msg in MsgReady) {
             PushNow(msg);
         }
         MsgReady.Clear();
+        if(nextTimestamp >= 0) {
+            UpdateTimer(nextTimestamp - currentTimestamp);
+        }
     }
     private async Task Loop() {
         bool running = true;
         while(running) {
             try {
                 await foreach(var msg in Queue.Reader.ReadAllAsync()) {
-                    await Reactor.React(msg.Data, msg.Timestamp);
+                    await State.React(msg.Data, msg.Timestamp);
                 }
                 running = false;
             } catch (Exception e) {
@@ -108,7 +108,7 @@ public class Actor {
             }
         }
         try {
-            Reactor.Dispose();
+            State.Dispose();
         } catch (Exception e) {
             Console.WriteLine(e);
         }
