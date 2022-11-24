@@ -13,7 +13,8 @@ internal class EventScheduled: Event {
 public class Actor {
     private static readonly DateTime StartTime = DateTime.Now;
     private static readonly Timer Timer = new(o => NotifyScheduled());
-    private static readonly List<EventScheduled> UnsafeMsgScheduled = new();
+    private static readonly object Mtx = new();
+    private static EventScheduled? UnsafeScheduled = null;
     private static long CalcTimestamp() {
         return (long)((DateTime.Now - StartTime).TotalMilliseconds + 0.5);
     }
@@ -24,41 +25,59 @@ public class Actor {
         Timer.Change(timeout, Timeout.Infinite);
     }
     private static bool PushScheduled(EventScheduled msg) {
-        lock(UnsafeMsgScheduled) {
-            var idx = UnsafeMsgScheduled.BinarySearch(msg);
-            if(idx < 0) {
-                idx = ~idx;
-            }
-            UnsafeMsgScheduled.Insert(idx, msg);
-            if(idx == 0) {
+        lock(Mtx) {
+            if(UnsafeScheduled == null || msg.Timestamp < UnsafeScheduled.Timestamp) {
+                msg.Next = UnsafeScheduled;
+                UnsafeScheduled = msg;
                 UpdateTimer(msg.Timestamp - CalcTimestamp());
+            } else {
+                EventScheduled? head = UnsafeScheduled;
+                while(head.Next != null && msg.Timestamp >= head.Next.Timestamp) {
+                    head = head.Next;
+                }
+                msg.Next = head.Next;
+                head.Next = msg;
             }
         }
         return true;
     }
     private static void NotifyScheduled() {
-        EventScheduled? ready = null;
-        lock(UnsafeMsgScheduled) {
+        EventScheduled? head = null;
+        lock(Mtx) {
             long currentTimestamp = CalcTimestamp();
-            while(UnsafeMsgScheduled.Any() && UnsafeMsgScheduled[0].Timestamp < currentTimestamp) {
-                var msg = UnsafeMsgScheduled[0];
-                UnsafeMsgScheduled.RemoveAt(0);
-                msg.Next = ready;
-                ready = msg;
+            while(UnsafeScheduled != null && UnsafeScheduled.Timestamp < currentTimestamp) {
+                var msg = UnsafeScheduled;
+                UnsafeScheduled = msg.Next;
+                msg.Next = head;
+                head = msg;
             }
-            if(UnsafeMsgScheduled.Any()) {
-                var timeout = UnsafeMsgScheduled[0].Timestamp - currentTimestamp;
+            if(UnsafeScheduled != null) {
+                var timeout = UnsafeScheduled.Timestamp - currentTimestamp;
                 UpdateTimer(timeout);
             }
         }
-        while(ready != null) {
-            ready.Actor.PushNow(ready);
-            ready = ready.Next;
+        while(head != null) {
+            head.Actor.PushNow(head);
+            head = head.Next;
         }
     }
     private static void RemoveScheduled(Actor actor) {
-        lock(UnsafeMsgScheduled) {
-            UnsafeMsgScheduled.RemoveAll(msg => msg.Actor == actor);
+        lock(Mtx) {
+            while(UnsafeScheduled != null && UnsafeScheduled.Actor == actor) {
+                UnsafeScheduled = UnsafeScheduled.Next;
+            }
+            if(UnsafeScheduled == null) {
+                return;
+            }
+            var head = UnsafeScheduled;
+            while(head.Next != null) {
+                var next = head.Next;
+                if(next.Actor == actor) {
+                    head.Next = next.Next;
+                } else {
+                    head = head.Next;
+                }
+            }
         }
     }
     private readonly Channel<Event> Queue;
