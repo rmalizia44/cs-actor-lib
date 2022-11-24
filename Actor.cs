@@ -87,7 +87,7 @@ public class Actor {
     }
     public void Kill() {
         RemoveScheduled(this);
-        Queue.Writer.Complete();
+        Queue.Writer.TryComplete();
     }
     private bool PushNow(Event msg) {
         return Queue.Writer.TryWrite(msg);
