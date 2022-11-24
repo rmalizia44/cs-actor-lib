@@ -4,6 +4,7 @@ namespace Actors;
 
 internal class EventScheduled: Event {
     public readonly Actor Actor;
+    public EventScheduled? Next = null;
     public EventScheduled(Actor actor, object data, long timestamp): base(data, timestamp) {
         Actor = actor;
     }
@@ -36,17 +37,23 @@ public class Actor {
         return true;
     }
     private static void NotifyScheduled() {
+        EventScheduled? ready = null;
         lock(UnsafeMsgScheduled) {
             long currentTimestamp = CalcTimestamp();
             while(UnsafeMsgScheduled.Any() && UnsafeMsgScheduled[0].Timestamp < currentTimestamp) {
                 var msg = UnsafeMsgScheduled[0];
                 UnsafeMsgScheduled.RemoveAt(0);
-                msg.Actor.PushNow(msg);
+                msg.Next = ready;
+                ready = msg;
             }
             if(UnsafeMsgScheduled.Any()) {
                 var timeout = UnsafeMsgScheduled[0].Timestamp - currentTimestamp;
                 UpdateTimer(timeout);
             }
+        }
+        while(ready != null) {
+            ready.Actor.PushNow(ready);
+            ready = ready.Next;
         }
     }
     private static void RemoveScheduled(Actor actor) {
