@@ -8,7 +8,6 @@ public class Actor {
     private readonly Timer Timer;
     private readonly Channel<Event> Queue;
     private readonly List<Event> UnsafeMsgScheduled = new();
-    private readonly List<Event> MsgReady = new();
     private State State = null!;
     private Task Task = Task.FromException(Exception);
     public Actor() {
@@ -74,6 +73,7 @@ public class Actor {
         Timer.Change(timeout, Timeout.Infinite);
     }
     private void NotifyTimer() {
+        List<Event> MsgReady = new();
         long currentTimestamp = CalcTimestamp();
         long nextTimestamp = -1;
         lock(UnsafeMsgScheduled) {
@@ -90,7 +90,6 @@ public class Actor {
         foreach(var msg in MsgReady) {
             PushNow(msg);
         }
-        MsgReady.Clear();
         if(nextTimestamp >= 0) {
             UpdateTimer(nextTimestamp - currentTimestamp);
         }
