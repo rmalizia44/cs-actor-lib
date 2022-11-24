@@ -49,6 +49,11 @@ public class Actor {
             }
         }
     }
+    private static void RemoveScheduled(Actor actor) {
+        lock(UnsafeMsgScheduled) {
+            UnsafeMsgScheduled.RemoveAll(msg => msg.Actor == actor);
+        }
+    }
     private readonly Channel<Event> Queue;
     private State State = null!;
     private Task Task = null!;
@@ -81,6 +86,7 @@ public class Actor {
         }
     }
     public void Kill() {
+        RemoveScheduled(this);
         Queue.Writer.Complete();
     }
     private bool PushNow(Event msg) {
