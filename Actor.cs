@@ -3,18 +3,18 @@ using System.Threading.Channels;
 namespace Actors;
 
 public class Actor {
-    private static Exception Exception = new NotImplementedException();
+    private static readonly Exception Exception = new NotImplementedException();
     private readonly DateTime StartTime;
     private readonly Timer Timer;
-    private readonly Channel<MsgInfo> Queue;
-    private readonly List<MsgInfo> UnsafeMsgScheduled = new();
-    private readonly List<MsgInfo> MsgReady = new();
+    private readonly Channel<Event> Queue;
+    private readonly List<Event> UnsafeMsgScheduled = new();
+    private readonly List<Event> MsgReady = new();
     private State State = null!;
     private Task Task = Task.FromException(Exception);
     public Actor() {
         StartTime = DateTime.Now;
         Timer = new(o => NotifyTimer());
-        Queue = Channel.CreateUnbounded<MsgInfo>();
+        Queue = Channel.CreateUnbounded<Event>();
     }
     public Task Reset(State state) {
         var old = State;
@@ -36,9 +36,9 @@ public class Actor {
     public bool Send(object data, int delay = 0) {
         long timestamp = CalcTimestamp();
         if(delay > 0) {
-            return PostDelay(new MsgInfo(data, timestamp + delay));
+            return PostDelay(new Event(data, timestamp + delay));
         } else {
-            return PushNow(new MsgInfo(data, timestamp));
+            return PushNow(new Event(data, timestamp));
         }
     }
     public void Kill() {
@@ -47,10 +47,10 @@ public class Actor {
     private long CalcTimestamp() {
         return (long)((DateTime.Now - StartTime).TotalMilliseconds + 0.5);
     }
-    private bool PushNow(MsgInfo msg) {
+    private bool PushNow(Event msg) {
         return Queue.Writer.TryWrite(msg);
     }
-    private bool PostDelay(MsgInfo msg) {
+    private bool PostDelay(Event msg) {
         long firstTimestamp = -1;
         lock(UnsafeMsgScheduled) {
             var idx = UnsafeMsgScheduled.BinarySearch(msg);
@@ -77,7 +77,7 @@ public class Actor {
         long currentTimestamp = CalcTimestamp();
         long nextTimestamp = -1;
         lock(UnsafeMsgScheduled) {
-            MsgInfo? next;
+            Event? next;
             do {
                 MsgReady.Add(UnsafeMsgScheduled[0]);
                 UnsafeMsgScheduled.RemoveAt(0);
@@ -99,8 +99,8 @@ public class Actor {
         bool running = true;
         while(running) {
             try {
-                await foreach(var msg in Queue.Reader.ReadAllAsync()) {
-                    await State.React(msg.Data, msg.Timestamp);
+                await foreach(var e in Queue.Reader.ReadAllAsync()) {
+                    await State.React(e);
                 }
                 running = false;
             } catch (Exception e) {

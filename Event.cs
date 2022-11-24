@@ -1,13 +1,13 @@
 namespace Actors;
 
-internal class MsgInfo: IComparable<MsgInfo> {
-    public object Data;
+public class Event: IComparable<Event> {
+    public readonly object Data;
     public readonly long Timestamp;
-    public MsgInfo(object data, long timestamp) {
+    public Event(object data, long timestamp) {
         Data = data;
         Timestamp = timestamp;
     }
-    public int CompareTo(MsgInfo? other) {
+    public int CompareTo(Event? other) {
         return (int)(Timestamp - other!.Timestamp);
     }
 }
