@@ -73,18 +73,18 @@ public class Actor {
         Timer.Change(timeout, Timeout.Infinite);
     }
     private void NotifyTimer() {
+        Console.WriteLine("NotifyTimer");
         List<Event> MsgReady = new();
         long currentTimestamp = CalcTimestamp();
         long nextTimestamp = -1;
         lock(UnsafeMsgScheduled) {
-            Event? next;
-            do {
+            while(UnsafeMsgScheduled.Any() && UnsafeMsgScheduled[0].Timestamp < currentTimestamp) {
+                Console.WriteLine("MsgReady");
                 MsgReady.Add(UnsafeMsgScheduled[0]);
                 UnsafeMsgScheduled.RemoveAt(0);
-                next = UnsafeMsgScheduled.FirstOrDefault();
-            } while(next != null && next.Timestamp < currentTimestamp);
-            if(next != null) {
-                nextTimestamp = next.Timestamp;
+            }
+            if(UnsafeMsgScheduled.Any()) {
+                nextTimestamp = UnsafeMsgScheduled[0].Timestamp;
             }
         }
         foreach(var msg in MsgReady) {
