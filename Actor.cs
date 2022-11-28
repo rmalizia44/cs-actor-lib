@@ -2,15 +2,29 @@ using System.Threading.Channels;
 
 namespace Actors;
 
-internal class EventScheduled: Event {
+public interface Cancellable {
+    bool Cancel();
+}
+
+internal class EventScheduled: Event, Cancellable {
     public readonly Actor Actor;
     public EventScheduled? Next = null;
     public EventScheduled(Actor actor, object data, long timestamp): base(data, timestamp) {
         Actor = actor;
     }
+    public bool Cancel() {
+        return Actor.TryCancelScheduled(this);
+    }
+}
+
+internal class DummyCancellable: Cancellable {
+    public bool Cancel() {
+        return false;
+    }
 }
 
 public class Actor {
+    private static readonly Cancellable CantCancel = new DummyCancellable();
     private static readonly DateTime StartTime = DateTime.Now;
     private static readonly Timer Timer = new(o => NotifyScheduled());
     private static readonly object Mtx = new();
@@ -24,7 +38,7 @@ public class Actor {
         }
         Timer.Change(timeout, Timeout.Infinite);
     }
-    private static bool PushScheduled(EventScheduled msg) {
+    private static Cancellable PushScheduled(EventScheduled msg) {
         lock(Mtx) {
             if(UnsafeScheduled == null || msg.Timestamp < UnsafeScheduled.Timestamp) {
                 msg.Next = UnsafeScheduled;
@@ -39,7 +53,7 @@ public class Actor {
                 head.Next = msg;
             }
         }
-        return true;
+        return msg;
     }
     private static void NotifyScheduled() {
         EventScheduled? head = null;
@@ -80,6 +94,27 @@ public class Actor {
             }
         }
     }
+    internal static bool TryCancelScheduled(EventScheduled msg) {
+        lock(Mtx) {
+            if(UnsafeScheduled == null) {
+                return false;
+            }
+            if(UnsafeScheduled == msg) {
+                UnsafeScheduled = UnsafeScheduled.Next;
+                return true;
+            }
+            var head = UnsafeScheduled;
+            while(head.Next != null) {
+                var next = head.Next;
+                if(next == msg) {
+                    head.Next = next.Next;
+                    return true;
+                }
+                head = head.Next;
+            }
+        }
+        return false;
+    }
     private readonly Channel<Event> Queue;
     private State State = null!;
     private Task Task = null!;
@@ -103,20 +138,25 @@ public class Actor {
         }
         return Task;
     }
-    public bool Send(object data, int delay = 0) {
+    public Cancellable Send(object data, int delay = 0) {
         long timestamp = CalcTimestamp();
         if(delay > 0) {
-            return PushScheduled(new EventScheduled(this, data, timestamp + delay));
+            return PushScheduled(
+                new EventScheduled(this, data, timestamp + delay)
+            );
         } else {
-            return PushNow(new Event(data, timestamp));
+            return PushNow(
+                new Event(data, timestamp)
+            );
         }
     }
     public void Kill() {
         RemoveScheduled(this);
         Queue.Writer.TryComplete();
     }
-    private bool PushNow(Event msg) {
-        return Queue.Writer.TryWrite(msg);
+    private Cancellable PushNow(Event msg) {
+        Queue.Writer.TryWrite(msg);
+        return CantCancel;
     }
     private async Task Loop() {
         bool running = true;
