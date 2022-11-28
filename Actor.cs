@@ -2,21 +2,6 @@ using System.Threading.Channels;
 
 namespace Actors;
 
-public interface Cancellable {
-    bool Cancel();
-}
-
-internal class EventScheduled: Event, Cancellable {
-    public readonly Actor Actor;
-    public EventScheduled? Next = null;
-    public EventScheduled(Actor actor, object data, long timestamp): base(data, timestamp) {
-        Actor = actor;
-    }
-    public bool Cancel() {
-        return Actor.TryCancelScheduled(this);
-    }
-}
-
 internal class DummyCancellable: Cancellable {
     public bool Cancel() {
         return false;
