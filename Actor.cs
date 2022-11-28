@@ -2,14 +2,8 @@ using System.Threading.Channels;
 
 namespace Actors;
 
-internal class DummyCancellable: Cancellable {
-    public bool Cancel() {
-        return false;
-    }
-}
-
 public class Actor {
-    private static readonly Cancellable CantCancel = new DummyCancellable();
+    private static readonly Cancellable CantCancel = new AlwaysFalseCancellable();
     private static readonly DateTime StartTime = DateTime.Now;
     private static readonly Timer Timer = new(o => NotifyScheduled());
     private static readonly object Mtx = new();
