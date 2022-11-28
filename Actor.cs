@@ -55,6 +55,16 @@ public class Actor {
         }
         return msg;
     }
+    private static EventScheduled? ReverseOrder(EventScheduled? src) {
+        EventScheduled? dst = null;
+        while(src != null) {
+            var itr = src;
+            src = src.Next;
+            itr.Next = dst;
+            dst = itr;
+        }
+        return dst;
+    }
     private static void NotifyScheduled() {
         EventScheduled? head = null;
         lock(Mtx) {
@@ -70,6 +80,7 @@ public class Actor {
                 UpdateTimer(timeout);
             }
         }
+        head = ReverseOrder(head);
         while(head != null) {
             head.Actor.PushNow(head);
             head = head.Next;
