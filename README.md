@@ -1,5 +1,7 @@
 # Actor Library
 
+Tries to implement the (Re)Actor Pattern in C#, as described by Sergey Ignatchenko
+
 ## Installing
 
 ```xml
