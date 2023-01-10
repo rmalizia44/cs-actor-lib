@@ -2,14 +2,6 @@
 
 Tries to implement the (Re)Actor Pattern in C#, as described by Sergey Ignatchenko
 
-## Installing
-
-```xml
-<ItemGroup>
-    <ProjectReference Include="../lib/lib.csproj" />
-</ItemGroup>
-```
-
 ## Reactors Can
 
 ```c#
