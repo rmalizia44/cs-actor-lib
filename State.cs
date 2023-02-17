@@ -1,5 +1,5 @@
 namespace Actors;
 
-public interface State: IDisposable {
-    Task React(Event e);
+public interface State: IAsyncDisposable {
+    ValueTask ReactAsync(Event e);
 }

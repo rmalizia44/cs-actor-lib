@@ -23,7 +23,7 @@ public class Actor {
                 scheduler
             ).Unwrap();
         } else {
-            old.Dispose();
+            var _task = old.DisposeAsync();
         }
         return Task;
     }
@@ -52,7 +52,7 @@ public class Actor {
         while(running) {
             try {
                 await foreach(var e in Queue.Reader.ReadAllAsync()) {
-                    await State.React(e);
+                    await State.ReactAsync(e);
                 }
                 running = false;
             } catch (Exception e) {
@@ -60,7 +60,7 @@ public class Actor {
             }
         }
         try {
-            State.Dispose();
+            await State.DisposeAsync();
         } catch (Exception e) {
             Console.WriteLine(e);
         }
