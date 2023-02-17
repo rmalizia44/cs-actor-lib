@@ -3,7 +3,7 @@ namespace Actors;
 public class Event: IComparable<Event> {
     public readonly object Data;
     public readonly long Timestamp;
-    public Event(object data, long timestamp) {
+    internal Event(object data, long timestamp) {
         Data = data;
         Timestamp = timestamp;
     }
