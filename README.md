@@ -13,10 +13,10 @@ class MyState: State {
         Observer = observer;
         // ...
     }
-    public void Dispose() {
+    public async ValueTask DisposeAsync() {
         // ...
     }
-    public async Task React(Event e) {
+    public async ValueTask ReactAsync(Event e) {
         // ...
     }
 }
