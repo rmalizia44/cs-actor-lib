@@ -3,7 +3,6 @@ using System.Threading.Channels;
 namespace Actors;
 
 public class Actor {
-    private static readonly Cancellable CantCancel = new AlwaysFalseCancellable();
     private readonly Channel<Event> Queue;
     private State State = null!;
     private Task Task = null!;
@@ -45,7 +44,7 @@ public class Actor {
     }
     internal Cancellable PushNow(Event msg) {
         Queue.Writer.TryWrite(msg);
-        return CantCancel;
+        return AlwaysFalseCancellable.Singleton;
     }
     private async Task Loop() {
         bool running = true;
