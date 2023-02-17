@@ -7,6 +7,6 @@ internal class EventScheduled: Event, Cancellable {
         Actor = actor;
     }
     public bool Cancel() {
-        return Actor.TryCancelScheduled(this);
+        return Scheduler.Singleton.TryCancelScheduled(this);
     }
 }
