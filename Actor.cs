@@ -9,6 +9,7 @@ public class Actor {
     public Actor() {
         Queue = Channel.CreateUnbounded<Event>();
     }
+    // TODO: not thread safe, can only be used in initialization and in self ReactAsync method
     public Task Reset(State state) {
         var old = State;
         State = state;
