@@ -4,26 +4,32 @@ namespace Actors;
 
 public class Actor {
     private readonly Channel<Event> Queue;
+    private readonly TaskScheduler TaskScheduler;
     private State State = null!;
     private Task Task = null!;
     public Actor() {
         Queue = Channel.CreateUnbounded<Event>();
+        TaskScheduler = new ConcurrentExclusiveSchedulerPair()
+                .ExclusiveScheduler;
     }
     // TODO: not thread safe, can only be used in initialization and in self ReactAsync method
     public Task Reset(State state) {
         var old = State;
         State = state;
         if(old == null) {
-            var scheduler = new ConcurrentExclusiveSchedulerPair()
-                .ExclusiveScheduler;
             Task = Task.Factory.StartNew(
-                () => Loop(),
+                async () => await Loop(),
                 CancellationToken.None,
                 TaskCreationOptions.None,
-                scheduler
+                TaskScheduler
             ).Unwrap();
         } else {
-            var _task = old.DisposeAsync();
+            Task.Factory.StartNew(
+                async () => await old.DisposeAsync(),
+                CancellationToken.None,
+                TaskCreationOptions.None,
+                TaskScheduler
+            ).Unwrap();
         }
         return Task;
     }
