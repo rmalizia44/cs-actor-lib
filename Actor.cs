@@ -17,19 +17,13 @@ public class Actor {
         var old = State;
         State = state;
         if(old == null) {
-            Task = Task.Factory.StartNew(
-                async () => await Loop(),
-                CancellationToken.None,
-                TaskCreationOptions.None,
-                TaskScheduler
-            ).Unwrap();
+            Task = Spawn(
+                async () => await Loop()
+            );
         } else {
-            Task.Factory.StartNew(
-                async () => await old.DisposeAsync(),
-                CancellationToken.None,
-                TaskCreationOptions.None,
-                TaskScheduler
-            ).Unwrap();
+            Spawn(
+                async () => await old.DisposeAsync()
+            );
         }
         return Task;
     }
@@ -52,6 +46,14 @@ public class Actor {
     internal Cancellable PushNow(Event msg) {
         Queue.Writer.TryWrite(msg);
         return AlwaysFalseCancellable.Singleton;
+    }
+    private Task Spawn(Func<Task> func) {
+        return Task = Task.Factory.StartNew(
+                func,
+                CancellationToken.None,
+                TaskCreationOptions.None,
+                TaskScheduler
+            ).Unwrap();
     }
     private async Task Loop() {
         bool running = true;
