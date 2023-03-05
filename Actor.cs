@@ -23,9 +23,9 @@ public class Actor {
     }
     public Task Reset(State state) {
         return Spawn(async () => {
-            var old = State;
+            await State.DisposeAsync();
             State = state;
-            await old.DisposeAsync();
+            await State.StartAsync();
         });
     }
     public Cancellable Send(object data, int delay = 0) {
@@ -57,18 +57,11 @@ public class Actor {
             ).Unwrap();
     }
     private async Task Loop() {
-        bool running = true;
-        while(running) {
-            try {
-                await foreach(var e in Queue.Reader.ReadAllAsync()) {
-                    await State.ReactAsync(e);
-                }
-                running = false;
-            } catch (Exception e) {
-                Console.WriteLine(e);
-            }
-        }
         try {
+            await State.StartAsync();
+            await foreach(var e in Queue.Reader.ReadAllAsync()) {
+                await State.ReactAsync(e);
+            }
             await State.DisposeAsync();
         } catch (Exception e) {
             Console.WriteLine(e);
