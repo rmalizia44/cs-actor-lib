@@ -48,7 +48,7 @@ public class Actor {
         return AlwaysFalseCancellable.Singleton;
     }
     private Task Spawn(Func<Task> func) {
-        return Task = Task.Factory.StartNew(
+        return Task.Factory.StartNew(
                 func,
                 CancellationToken.None,
                 TaskCreationOptions.None,
