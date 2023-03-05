@@ -4,13 +4,15 @@ Tries to implement the (Re)Actor Pattern in C#, as described by Sergey Ignatchen
 
 ## Reactors Can
 
-```c#
+```cs
 class MyState: State {
     private Actor Self;
     private Actor Observer;
     public MyState(Actor self, Actor observer) {
         Self = self;
         Observer = observer;
+    }
+    public async ValueTask StartAsync() {
         // ...
     }
     public async ValueTask DisposeAsync() {
@@ -24,27 +26,27 @@ class MyState: State {
 
 ### Send messages to other Reactors
 
-```c#
+```cs
 Observer.Send("hello");
 ```
 
 ### Post timer events to themselves
 
-```c#
+```cs
 Self.Send("update", 1000);
 ```
 
 ### Initiate non-blocking calls
 
-```c#
+```cs
 await Task.Delay(100);
 ```
 
 ### Request creation of other Reactors
 
-```c#
+```cs
 var actor = new Actor();
 var state = new FirstState(actor);
-var task = actor.Reset(state);
+var task = actor.Start(state);
 await task;
 ```
