@@ -6,26 +6,27 @@ public class Actor {
     private readonly Channel<Event> Queue;
     private readonly TaskScheduler TaskScheduler;
     private State State = null!;
-    private Task Task = null!;
     public Actor() {
         Queue = Channel.CreateUnbounded<Event>();
         TaskScheduler = new ConcurrentExclusiveSchedulerPair()
                 .ExclusiveScheduler;
     }
-    // TODO: not thread safe, can only be used in initialization and in self ReactAsync method
-    public Task Reset(State state) {
-        var old = State;
-        State = state;
-        if(old == null) {
-            Task = Spawn(
-                async () => await Loop()
-            );
-        } else {
-            Spawn(
-                async () => await old.DisposeAsync()
-            );
+    // not thread safe, can only be used once, in initialization
+    public Task Start(State state) {
+        if(State != null) {
+            throw new Exception("actor already initialized");
         }
-        return Task;
+        State = state;
+        return Spawn(
+            async () => await Loop()
+        );
+    }
+    public Task Reset(State state) {
+        return Spawn(async () => {
+            var old = State;
+            State = state;
+            await old.DisposeAsync();
+        });
     }
     public Cancellable Send(object data, int delay = 0) {
         long timestamp = Scheduler.Singleton.CalcTimestamp();
