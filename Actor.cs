@@ -56,14 +56,18 @@ public class Actor {
             ).Unwrap();
     }
     private async Task Loop() {
-        try {
-            await State.StartAsync();
-            await foreach(var e in Queue.Reader.ReadAllAsync()) {
-                await State.ReactAsync(e);
+        bool running = true;
+        await State.StartAsync();
+        while(running) {
+            try {
+                await foreach(var e in Queue.Reader.ReadAllAsync()) {
+                    await State.ReactAsync(e);
+                }
+                running = false;
+            } catch (Exception e) {
+                Console.WriteLine(e);
             }
-            await State.DisposeAsync();
-        } catch (Exception e) {
-            Console.WriteLine(e);
         }
+        await State.DisposeAsync();
     }
 }
