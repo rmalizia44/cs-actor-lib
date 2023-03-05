@@ -11,15 +11,14 @@ public class Actor {
         TaskScheduler = new ConcurrentExclusiveSchedulerPair()
                 .ExclusiveScheduler;
     }
-    // not thread safe, can only be used once, in initialization
     public Task Start(State state) {
-        if(State != null) {
-            throw new Exception("actor already initialized");
-        }
-        State = state;
-        return Spawn(
-            async () => await Loop()
-        );
+        return Spawn(async () => {
+            if(State != null) {
+                throw new Exception("actor already initialized");
+            }
+            State = state;
+            await Loop();
+        });
     }
     public Task Reset(State state) {
         return Spawn(async () => {
